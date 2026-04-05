@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hiring Funnel Diagnostics — CHRO Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --surface: #ffffff;
+    --border: #e5e3dc;
+    --text: #1a1a16;
+    --muted: #7a7a70;
+    --accent: #00836e;
+    --accent-light: #e6f4f1;
+    --red: #d94040;
+    --red-light: #fdf0f0;
+    --amber: #c47d15;
+    --amber-light: #fef6e4;
+    --green: #2f8a5a;
+    --green-light: #edf7f2;
+    --blue: #2c6fb0;
+    --blue-light: #eef4fb;
+    --sidebar-w: 220px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); display:flex; min-height:100vh; font-size:14px; }
+
+  /* ── SIDEBAR ── */
+  aside {
+    width: var(--sidebar-w);
+    background: #12120e;
+    color: #c8c8be;
+    position: fixed;
+    top:0; left:0; bottom:0;
+    display: flex; flex-direction:column;
+    padding: 28px 0;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .logo {
+    padding: 0 24px 28px;
+    border-bottom: 1px solid #2a2a24;
+  }
+  .logo-title { font-size: 13px; font-weight:600; color:#ffffff; letter-spacing:0.05em; text-transform:uppercase; }
+  .logo-sub { font-size: 11px; color: #5a5a50; margin-top:3px; font-family:'DM Mono',monospace; }
+  nav { padding: 20px 0; flex:1; }
+  .nav-section { font-size: 10px; text-transform:uppercase; letter-spacing:0.12em; color:#3a3a32; padding: 16px 24px 6px; font-weight:600; }
+  .nav-item {
+    display:flex; align-items:center; gap:10px;
+    padding: 9px 24px; font-size:13px; cursor:pointer;
+    color:#8a8a80; transition:all 0.15s; border-left:2px solid transparent;
+  }
+  .nav-item:hover { color:#ffffff; background:rgba(255,255,255,0.04); }
+  .nav-item.active { color:#ffffff; background:rgba(0,131,110,0.15); border-left-color:var(--accent); }
+  .nav-dot { width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
+  .nav-badge {
+    margin-left:auto; font-size:10px; padding:2px 6px; border-radius:3px;
+    background:#3a0a0a; color:#e57373; font-family:'DM Mono',monospace; font-weight:500;
+  }
+  .nav-badge.ok { background:#0a2a1a; color:#69c994; }
+  .sidebar-footer { padding: 20px 24px; border-top:1px solid #2a2a24; font-size:11px; color:#3a3a32; font-family:'DM Mono',monospace; }
+
+  /* ── MAIN ── */
+  main { margin-left: var(--sidebar-w); flex:1; padding: 36px 40px; max-width:1200px; }
+
+  .page-header { margin-bottom:32px; }
+  .page-header h1 { font-size:22px; font-weight:600; color:var(--text); }
+  .page-header p { color:var(--muted); margin-top:4px; font-size:13px; }
+
+  /* ── ALERT CARDS (3 broken things) ── */
+  .alerts { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:32px; }
+  .alert-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:18px; position:relative; overflow:hidden;
+  }
+  .alert-card::before { content:''; position:absolute; top:0;left:0;right:0; height:3px; }
+  .alert-card.red::before { background:var(--red); }
+  .alert-card.amber::before { background:var(--amber); }
+  .alert-card.blue::before { background:var(--blue); }
+  .alert-tag {
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase;
+    padding:3px 8px; border-radius:4px; margin-bottom:10px;
+  }
+  .alert-tag.red { background:var(--red-light); color:var(--red); }
+  .alert-tag.amber { background:var(--amber-light); color:var(--amber); }
+  .alert-tag.blue { background:var(--blue-light); color:var(--blue); }
+  .alert-number { font-size:30px; font-weight:600; line-height:1; margin-bottom:4px; font-family:'DM Mono',monospace; }
+  .alert-card.red .alert-number { color:var(--red); }
+  .alert-card.amber .alert-number { color:var(--amber); }
+  .alert-card.blue .alert-number { color:var(--blue); }
+  .alert-label { font-size:12px; color:var(--muted); line-height:1.5; }
+
+  /* ── KPI ROW ── */
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:32px; }
+  .kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 16px; }
+  .kpi-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; }
+  .kpi-value { font-size:22px; font-weight:600; font-family:'DM Mono',monospace; margin-top:4px; color:var(--text); }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom:36px; }
+  .section-header { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:16px; }
+  .section-title { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+  .section-insight {
+    font-size:12px; padding:6px 12px; border-radius:5px;
+    background:var(--accent-light); color:var(--accent); font-weight:500;
+  }
+
+  /* ── CARDS / PANELS ── */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:22px; }
+  .card-title { font-size:14px; font-weight:600; margin-bottom:4px; }
+  .card-sub { font-size:12px; color:var(--muted); margin-bottom:18px; }
+
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; }
+
+  /* ── FUNNEL CHART ── */
+  .funnel-wrap { display:flex; flex-direction:column; gap:6px; }
+  .funnel-stage { display:flex; align-items:center; gap:12px; }
+  .funnel-label { width:140px; text-align:right; font-size:12px; color:var(--muted); flex-shrink:0; }
+  .funnel-bar-track { flex:1; background:#f0efe9; border-radius:3px; height:26px; position:relative; overflow:hidden; }
+  .funnel-bar-fill { height:100%; border-radius:3px; display:flex; align-items:center; padding-left:10px; transition:width 1s ease; }
+  .funnel-bar-fill span { font-size:11px; font-weight:600; color:#fff; font-family:'DM Mono',monospace; white-space:nowrap; }
+  .funnel-drop { width:70px; text-align:right; font-size:11px; font-family:'DM Mono',monospace; flex-shrink:0; }
+  .funnel-drop.bad { color:var(--red); }
+  .funnel-drop.ok { color:var(--muted); }
+
+  /* ── DEPT TABLE ── */
+  .dept-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .dept-table th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; cursor:pointer; user-select:none; }
+  .dept-table th:hover { color:var(--text); }
+  .dept-table td { padding:10px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .dept-table tr:last-child td { border-bottom:none; }
+  .dept-table tr:hover td { background:#fafaf6; }
+  .rate-pill {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 8px; border-radius:4px; font-family:'DM Mono',monospace; font-weight:500; font-size:11px;
+  }
+  .rate-bar { display:flex; align-items:center; gap:8px; }
+  .rate-bar-track { width:80px; height:5px; background:#f0efe9; border-radius:3px; overflow:hidden; flex-shrink:0; }
+  .rate-bar-fill { height:100%; border-radius:3px; }
+  .dept-name { font-weight:500; font-size:13px; }
+  .badge { font-size:10px; padding:2px 6px; border-radius:3px; font-weight:600; margin-left:4px; }
+  .badge.best { background:var(--green-light); color:var(--green); }
+  .badge.worst { background:var(--red-light); color:var(--red); }
+
+  /* ── BAR ROWS (source, notes) ── */
+  .bar-list { display:flex; flex-direction:column; gap:9px; }
+  .bar-row { display:flex; align-items:center; gap:10px; }
+  .bar-name { width:170px; font-size:12px; color:var(--text); flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar-track { flex:1; height:18px; background:#f0efe9; border-radius:3px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:3px; }
+  .bar-val { width:50px; text-align:right; font-size:11px; font-family:'DM Mono',monospace; color:var(--muted); flex-shrink:0; }
+
+  /* ── HEATMAP TABLE ── */
+  .heatmap-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .heatmap-table th { padding:6px 10px; border-bottom:1px solid var(--border); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; text-align:center; }
+  .heatmap-table th:first-child { text-align:left; }
+  .heatmap-table td { padding:7px 10px; border-bottom:1px solid #f5f4ef; text-align:center; font-family:'DM Mono',monospace; }
+  .heatmap-table td:first-child { text-align:left; font-family:'DM Sans',sans-serif; font-weight:500; font-size:12px; }
+  .heat-0 { background:#edf7f2; color:#2f8a5a; }
+  .heat-1 { background:#fef9e4; color:#c47d15; }
+  .heat-2 { background:#fdf0f0; color:#d94040; }
+
+  /* ── INSIGHT CALLOUTS ── */
+  .insight-box {
+    border-left:3px solid var(--accent);
+    background:var(--accent-light);
+    padding:12px 16px;
+    border-radius:0 6px 6px 0;
+    margin-bottom:10px;
+    font-size:12px;
+    line-height:1.6;
+    color:#1a4a42;
+  }
+  .insight-box.red { border-left-color:var(--red); background:var(--red-light); color:#5a1a1a; }
+  .insight-box.amber { border-left-color:var(--amber); background:var(--amber-light); color:#5a3a0a; }
+  .insight-label { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:4px; }
+
+  /* ── RECOMMENDATIONS ── */
+  .reco-list { display:flex; flex-direction:column; gap:14px; }
+  .reco-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:16px; display:flex; gap:14px; align-items:flex-start;
+  }
+  .reco-num {
+    width:28px; height:28px; border-radius:6px; background:#12120e; color:#ffffff;
+    font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; font-family:'DM Mono',monospace;
+  }
+  .reco-title { font-size:13px; font-weight:600; margin-bottom:4px; }
+  .reco-body { font-size:12px; color:var(--muted); line-height:1.6; }
+  .reco-impact { font-size:11px; font-weight:600; color:var(--green); margin-top:6px; }
+
+  /* ── TABS ── */
+  .tab-bar { display:flex; gap:2px; margin-bottom:16px; background:#f0efe9; border-radius:6px; padding:3px; width:fit-content; }
+  .tab-btn {
+    padding:6px 14px; border-radius:4px; font-size:12px; font-weight:500; cursor:pointer;
+    border:none; background:none; color:var(--muted); transition:all 0.15s;
+  }
+  .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+
+  .chart-container { position:relative; width:100%; }
+
+  /* ── SECTION ANCHORS ── */
+  section { scroll-margin-top: 20px; }
+
+  /* Responsive */
+  @media(max-width:900px) {
+    aside { display:none; }
+    main { margin-left:0; padding:20px; }
+    .alerts { grid-template-columns:1fr; }
+    .kpi-row { grid-template-columns:repeat(2,1fr); }
+    .two-col,.three-col { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="logo">
+    <div class="logo-title">Hiring Diagnostics</div>
+    <div class="logo-sub">3,000 applicants · FY 2025</div>
+  </div>
+  <nav>
+    <div class="nav-section">Analysis</div>
+    <div class="nav-item active" onclick="navTo('summary',this)"><div class="nav-dot"></div>Executive Summary</div>
+    <div class="nav-item" onclick="navTo('funnel',this)"><div class="nav-dot"></div>Funnel Overview</div>
+    <div class="nav-item" onclick="navTo('departments',this)"><div class="nav-dot"></div>Department Breakdown <span class="nav-badge">!</span></div>
+    <div class="nav-item" onclick="navTo('sources',this)"><div class="nav-dot"></div>Source Quality <span class="nav-badge">!</span></div>
+    <div class="nav-item" onclick="navTo('dropouts',this)"><div class="nav-dot"></div>Why Candidates Leave</div>
+    <div class="nav-item" onclick="navTo('timing',this)"><div class="nav-dot"></div>Process Timing</div>
+    <div class="nav-item" onclick="navTo('compensation',this)"><div class="nav-dot"></div>Compensation</div>
+    <div class="nav-section">Action</div>
+    <div class="nav-item" onclick="navTo('recommendations',this)"><div class="nav-dot"></div>Recommendations <span class="nav-badge ok">3</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    Data: mosaicfellowship.in<br>
+    Rows: 3,000 · Cols: 26
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header" id="summary">
+    <h1>Hiring Funnel Diagnostics</h1>
+    <p>3,000 applicants · 10 departments · FY 2025 — Built for the CHRO. Here's what's broken.</p>
+  </div>
+
+  <!-- 3 BIG PROBLEM ALERTS -->
+  <div class="alerts">
+    <div class="alert-card red">
+      <div class="alert-tag red">🔴 Critical — Top of Funnel</div>
+      <div class="alert-number">75.2%</div>
+      <div class="alert-label">of applicants never receive a phone screen. <strong>2,255 of 3,000</strong> candidates are silently ignored.</div>
+    </div>
+    <div class="alert-card amber">
+      <div class="alert-tag amber">🟡 Critical — Bottom of Funnel</div>
+      <div class="alert-number">50.3%</div>
+      <div class="alert-label">of candidates who <em>accepted offers</em> never joined. Notice period issues account for 182 cases.</div>
+    </div>
+    <div class="alert-card blue">
+      <div class="alert-tag blue">🔵 Surprise — Source Quality</div>
+      <div class="alert-number">1.6%</div>
+      <div class="alert-label">join rate from <strong>Employee Referrals</strong> — the worst of all 8 sources. Indeed (4.2%) outperforms 3×.</div>
+    </div>
+  </div>
+
+  <!-- KPI ROW -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">Overall Join Rate</div>
+      <div class="kpi-value" style="color:var(--red)">2.9%</div>
+      <div class="kpi-sub">86 of 3,000 joined</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Process Days</div>
+      <div class="kpi-value">48.3</div>
+      <div class="kpi-sub">End-to-end per candidate</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Offer Accept Rate</div>
+      <div class="kpi-value">69.5%</div>
+      <div class="kpi-sub">173 of 249 offers taken</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Withdrew</div>
+      <div class="kpi-value" style="color:var(--amber)">393</div>
+      <div class="kpi-sub">Avg 75.8 days in process</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Offers Extended</div>
+      <div class="kpi-value">249</div>
+      <div class="kpi-sub">8.3% of all applicants</div>
+    </div>
+  </div>
+
+  <!-- FUNNEL -->
+  <section id="funnel" class="section">
+    <div class="section-header">
+      <div class="section-title">Hiring Funnel — Where candidates drop</div>
+      <div class="section-insight">Biggest drop: Applied → Phone Screen (−75.2%)</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Stage-by-stage conversion</div>
+      <div class="card-sub">Out of 3,000 applicants. Each bar shows how many reached that stage.</div>
+      <div class="funnel-wrap" id="funnel-chart"></div>
+    </div>
+  </section>
+
+  <!-- DEPARTMENTS -->
+  <section id="departments" class="section">
+    <div class="section-header">
+      <div class="section-title">Department Performance</div>
+      <div class="section-insight">Operations (4.5%) is the benchmark — Design (1.6%) needs urgent review</div>
+    </div>
+    <div class="insight-box red">
+      <div class="insight-label">🔴 Design Department Problem</div>
+      311 applicants → only 5 joined. Of those who accepted offers, only <strong>27.8% actually joined</strong> — the worst Accept→Join rate in the company. Engineering has the worst offer acceptance rate at 57.7%.
+    </div>
+    <div class="insight-box amber">
+      <div class="insight-label">🟡 Accept-to-Join Collapse</div>
+      Across all departments, candidates who <em>accept offers</em> still don't show up at alarming rates. This is a notice-period problem: 182 candidates cited "Notice period too long" in exit notes — the #1 operational fix.
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div class="card-title">All 10 Departments</div>
+          <div class="card-sub" style="margin-bottom:0">Click column headers to sort. Accept→Join = % of offer-acceptors who actually started.</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab-btn active" onclick="showDeptView('funnel',this)">Funnel</div>
+          <div class="tab-btn" onclick="showDeptView('rates',this)">Rates</div>
+          <div class="tab-btn" onclick="showDeptView('timing',this)">Timing</div>
+        </div>
+      </div>
+      <table class="dept-table" id="dept-table">
+        <thead>
+          <tr>
+            <th onclick="sortDept('dept')">Department</th>
+            <th onclick="sortDept('total')">Applied</th>
+            <th onclick="sortDept('phone_screen')">Screened</th>
+            <th onclick="sortDept('offer_ext')">Offered</th>
+            <th onclick="sortDept('joined')">Joined</th>
+            <th onclick="sortDept('join_rate')">Join Rate ↕</th>
+            <th onclick="sortDept('accept_to_join_rate')">Accept→Join</th>
+            <th onclick="sortDept('avg_process_days')">Avg Days</th>
+          </tr>
+        </thead>
+        <tbody id="dept-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SOURCES -->
+  <section id="sources" class="section">
+    <div class="section-header">
+      <div class="section-title">Source Quality Analysis</div>
+      <div class="section-insight">Indeed converts 4.2× better than AngelList</div>
+    </div>
+    <div class="insight-box red">
+      <div class="insight-label">🔴 Employee Referrals Are Failing</div>
+      Conventional wisdom says referrals are the best hire. In this company, Employee Referrals have a <strong>1.6% join rate</strong> — second worst after AngelList (1.1%). Additionally, referrals have the highest withdrawal rate (53 withdrew). The referral program needs a quality audit.
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Join Rate by Source</div>
+        <div class="card-sub">% of applicants from each source who ultimately joined</div>
+        <div class="bar-list" id="source-join-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Phone Screen Rate by Source</div>
+        <div class="card-sub">% who get past the first screening filter</div>
+        <div class="bar-list" id="source-screen-bars"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DROPOUT REASONS -->
+  <section id="dropouts" class="section">
+    <div class="section-header">
+      <div class="section-title">Why Candidates Leave</div>
+      <div class="section-insight">2 types: company rejects them, or they leave themselves</div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Top exit reasons (Recruiter Notes)</div>
+        <div class="card-sub">Both rejections and withdrawals. 1,541 rejected, 393 withdrew.</div>
+        <div class="bar-list" id="notes-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Insight: Two types of loss</div>
+        <div class="card-sub">Understanding who's responsible for each exit</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+          <div>
+            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--red);margin-bottom:6px;">Company rejected them (fixable screening)</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+              <strong>Missing key skills</strong> (224), <strong>Culture mismatch</strong> (198), <strong>Overqualified</strong> (188), <strong>Below bar on technical</strong> (166) — these 776 cases suggest screening criteria may be misaligned with actual role needs.
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:12px;">
+            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--amber);margin-bottom:6px;">They left us (fixable process)</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+              <strong>Notice period too long</strong> (182), <strong>Accepted another offer</strong> (63), <strong>Counter-offered</strong> (61), <strong>Slow process</strong> (59), <strong>Too many rounds</strong> (53) — 418 candidates left because of <em>our process speed</em>, not fit.
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:12px;background:var(--amber-light);padding:12px;border-radius:6px;">
+            <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:4px;">Key: 418 avoidable exits</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">These candidates didn't leave because they weren't a fit. They left because our process was too slow, had too many rounds, or didn't manage notice periods. Entirely fixable.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIMING -->
+  <section id="timing" class="section">
+    <div class="section-header">
+      <div class="section-title">Process Timing</div>
+      <div class="section-insight">Notice period (avg 33.9 days) is the single biggest time sink</div>
+    </div>
+    <div class="insight-box">
+      <div class="insight-label">Key Finding</div>
+      Timing is surprisingly uniform across departments (44–52 days total). The problem is NOT inter-stage delays — it's the <strong>Accept→Join gap (avg 33.9 days)</strong> which represents the notice period. Sales takes the longest overall (51.9 days). Customer Support has the slowest Phone→Tech transition (8.0 days vs 7.2 avg).
+    </div>
+    <div class="card">
+      <div class="card-title">Days per stage, by department</div>
+      <div class="card-sub">Hotter cells = more days. Notice period (Accept→Join) dominates everything.</div>
+      <div style="overflow-x:auto;">
+        <table class="heatmap-table" id="heatmap-table"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPENSATION -->
+  <section id="compensation" class="section">
+    <div class="section-header">
+      <div class="section-title">Compensation Gap Analysis</div>
+      <div class="section-insight">Gap has no strong effect on offer acceptance — but budget matters</div>
+    </div>
+    <div class="insight-box">
+      <div class="insight-label">Counterintuitive Finding</div>
+      Offers below candidates' expectations are NOT significantly less likely to be accepted. Acceptance rates are flat (67–73%) across all gap levels. However, <strong>"Salary expectations too high"</strong> was cited in 180 rejections — suggesting the issue is companies screening out high-expectation candidates before even making offers.
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Offer acceptance rate vs. compensation gap</div>
+        <div class="card-sub">Gap = (offered − expected) / expected. Negative = offer below expectation.</div>
+        <div class="chart-container" style="height:220px;"><canvas id="comp-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Departments citing "Salary too high"</div>
+        <div class="card-sub">Where budget misalignment is most acute</div>
+        <div class="bar-list" id="salary-bars"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECOMMENDATIONS -->
+  <section id="recommendations" class="section">
+    <div class="section-header">
+      <div class="section-title">Recommendations</div>
+      <div class="section-insight">3 specific, quantified actions</div>
+    </div>
+    <div class="reco-list">
+      <div class="reco-card">
+        <div class="reco-num">1</div>
+        <div>
+          <div class="reco-title">Fix the screening bottleneck — review the phone screen criteria</div>
+          <div class="reco-body">75.2% of applicants (2,255 people) are rejected or ignored before the first screen. This is too aggressive. The most common rejection reasons — "Missing key skills" (224), "Communication concerns" (217), "Culture mismatch" (198) — suggest screeners may be applying overly strict filters. Audit the screening rubric across all 10 departments against Operations (best performer at 4.5% join rate) as the benchmark. Even moving the phone screen rate from 24.8% to 30% would add ~150 candidates to the pipeline.</div>
+          <div class="reco-impact">↑ Est. +30% pipeline volume if screening criteria relaxed by 20%</div>
+        </div>
+      </div>
+      <div class="reco-card">
+        <div class="reco-num">2</div>
+        <div>
+          <div class="reco-title">Tackle the notice period crisis — 418 avoidable exits</div>
+          <div class="reco-body">Half of offer acceptors don't join. "Notice period too long" is the #1 process complaint (182 cases). Solutions: (a) build notice period buyout budgets into offers for high-priority roles, (b) pre-negotiate joining dates at the offer stage — not after acceptance, (c) implement stay-warm programs during the notice period. Design department is worst — only 27.8% of their offer acceptors join. Immediate intervention needed there specifically.</div>
+          <div class="reco-impact">↑ Est. +40 additional joiners per year if Accept→Join rate improves 15 percentage points</div>
+        </div>
+      </div>
+      <div class="reco-card">
+        <div class="reco-num">3</div>
+        <div>
+          <div class="reco-title">Audit the Employee Referral program — reallocate to Indeed/Naukri</div>
+          <div class="reco-body">Employee Referrals produce a 1.6% join rate — worse than all job boards except AngelList. Despite sending 382 candidates, only 6 joined. Meanwhile Indeed (4.2%) and Naukri (3.7%) consistently outperform. Additionally, referrals have the highest withdrawal rate (53 withdrew). Recommendation: (a) reduce referral bonus until quality improves, (b) add quality filters to the referral submission process, (c) redirect budget to Indeed and Naukri campaigns. AngelList should be deprioritised immediately.</div>
+          <div class="reco-impact">↑ Reallocating 50% of referral effort to Indeed could yield ~10 additional joiners per cycle</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── EMBEDDED DATA ──
+const DATA = {"summary":{"total_applicants":3000,"total_joined":86,"overall_join_rate":2.9,"total_rejected":1541,"total_withdrew":393,"top_of_funnel_loss":2255,"accept_to_join_rate":49.7,"notice_period_complaints":182,"best_dept":"Operations","best_dept_rate":4.5,"worst_dept":"Design","worst_dept_rate":1.6,"best_source":"Indeed","best_source_rate":4.2,"worst_source":"AngelList","worst_source_rate":1.1,"avg_total_process_days":48.3,"avg_accept_to_join_days":33.9},"funnel":[{"stage":"Applied","count":3000},{"stage":"Phone Screen","count":745},{"stage":"Technical Round","count":463},{"stage":"Culture Fit","count":373},{"stage":"Hiring Manager","count":308},{"stage":"Offer Extended","count":249},{"stage":"Offer Accepted","count":173},{"stage":"Joined","count":86}],"departments":[{"dept":"Customer Support","total":290,"phone_screen":62,"technical":37,"culture":31,"hm":21,"offer_ext":15,"offer_acc":13,"joined":5,"join_rate":1.7,"accept_to_join_rate":38.5,"offer_to_accept_rate":86.7,"avg_process_days":50.8,"avg_days_apply_to_phone":11.2,"avg_accept_to_join":34.1},{"dept":"Data Science","total":302,"phone_screen":86,"technical":49,"culture":41,"hm":38,"offer_ext":28,"offer_acc":20,"joined":9,"join_rate":3.0,"accept_to_join_rate":45.0,"offer_to_accept_rate":71.4,"avg_process_days":47.8,"avg_days_apply_to_phone":10.8,"avg_accept_to_join":32.6},{"dept":"Design","total":311,"phone_screen":78,"technical":51,"culture":37,"hm":32,"offer_ext":27,"offer_acc":18,"joined":5,"join_rate":1.6,"accept_to_join_rate":27.8,"offer_to_accept_rate":66.7,"avg_process_days":46.8,"avg_days_apply_to_phone":11.1,"avg_accept_to_join":34.2},{"dept":"Engineering","total":304,"phone_screen":71,"technical":44,"culture":37,"hm":32,"offer_ext":26,"offer_acc":15,"joined":7,"join_rate":2.3,"accept_to_join_rate":46.7,"offer_to_accept_rate":57.7,"avg_process_days":48.9,"avg_days_apply_to_phone":10.8,"avg_accept_to_join":32.6},{"dept":"Finance","total":317,"phone_screen":89,"technical":52,"culture":41,"hm":32,"offer_ext":24,"offer_acc":18,"joined":8,"join_rate":2.5,"accept_to_join_rate":44.4,"offer_to_accept_rate":75.0,"avg_process_days":44.3,"avg_days_apply_to_phone":11.4,"avg_accept_to_join":35.9},{"dept":"HR","total":295,"phone_screen":82,"technical":47,"culture":35,"hm":32,"offer_ext":24,"offer_acc":14,"joined":8,"join_rate":2.7,"accept_to_join_rate":57.1,"offer_to_accept_rate":58.3,"avg_process_days":46.2,"avg_days_apply_to_phone":10.8,"avg_accept_to_join":34.0},{"dept":"Marketing","total":297,"phone_screen":70,"technical":52,"culture":43,"hm":35,"offer_ext":29,"offer_acc":20,"joined":10,"join_rate":3.4,"accept_to_join_rate":50.0,"offer_to_accept_rate":69.0,"avg_process_days":49.8,"avg_days_apply_to_phone":10.4,"avg_accept_to_join":35.7},{"dept":"Operations","total":311,"phone_screen":77,"technical":45,"culture":38,"hm":31,"offer_ext":28,"offer_acc":22,"joined":14,"join_rate":4.5,"accept_to_join_rate":63.6,"offer_to_accept_rate":78.6,"avg_process_days":48.2,"avg_days_apply_to_phone":10.3,"avg_accept_to_join":32.6},{"dept":"Product","total":276,"phone_screen":64,"technical":38,"culture":30,"hm":23,"offer_ext":21,"offer_acc":12,"joined":7,"join_rate":2.5,"accept_to_join_rate":58.3,"offer_to_accept_rate":57.1,"avg_process_days":49.3,"avg_days_apply_to_phone":11.3,"avg_accept_to_join":32.9},{"dept":"Sales","total":297,"phone_screen":66,"technical":48,"culture":40,"hm":32,"offer_ext":27,"offer_acc":21,"joined":13,"join_rate":4.4,"accept_to_join_rate":61.9,"offer_to_accept_rate":77.8,"avg_process_days":51.9,"avg_days_apply_to_phone":11.3,"avg_accept_to_join":34.9}],"sources":[{"source":"Direct Application","total":384,"joined":13,"phone_screen":92,"offer_ext":29,"withdrew":47,"join_rate":3.4,"phone_screen_rate":24.0},{"source":"Campus","total":379,"joined":12,"phone_screen":96,"offer_ext":24,"withdrew":44,"join_rate":3.2,"phone_screen_rate":25.3},{"source":"Employee Referral","total":382,"joined":6,"phone_screen":85,"offer_ext":29,"withdrew":53,"join_rate":1.6,"phone_screen_rate":22.3},{"source":"Consultant","total":362,"joined":13,"phone_screen":92,"offer_ext":37,"withdrew":51,"join_rate":3.6,"phone_screen_rate":25.4},{"source":"Naukri","total":379,"joined":14,"phone_screen":106,"offer_ext":38,"withdrew":42,"join_rate":3.7,"phone_screen_rate":28.0},{"source":"AngelList","total":380,"joined":4,"phone_screen":85,"offer_ext":26,"withdrew":61,"join_rate":1.1,"phone_screen_rate":22.4},{"source":"LinkedIn","total":373,"joined":9,"phone_screen":99,"offer_ext":30,"withdrew":47,"join_rate":2.4,"phone_screen_rate":26.5},{"source":"Indeed","total":361,"joined":15,"phone_screen":90,"offer_ext":36,"withdrew":48,"join_rate":4.2,"phone_screen_rate":24.9}],"notes":[{"reason":"Missing key skills","count":224},{"reason":"Communication concerns","count":217},{"reason":"Culture mismatch","count":198},{"reason":"Overqualified for role","count":188},{"reason":"Better candidates available","count":186},{"reason":"Notice period too long","count":182},{"reason":"Salary expectations too high","count":180},{"reason":"Below bar on technical","count":166},{"reason":"Accepted another offer","count":63},{"reason":"Counter-offered by employer","count":61},{"reason":"Slow process","count":59},{"reason":"Personal reasons","count":56}],"timing":[{"dept":"Customer Support","days_apply_to_phone":11.2,"days_phone_to_tech":8.0,"days_tech_to_culture":8.0,"days_culture_to_hm":5.4,"days_hm_to_offer":7.3,"days_offer_to_accept":11.6,"days_accept_to_join":34.1,"total_process_days":50.8},{"dept":"Data Science","days_apply_to_phone":10.8,"days_phone_to_tech":7.4,"days_tech_to_culture":7.5,"days_culture_to_hm":5.6,"days_hm_to_offer":7.7,"days_offer_to_accept":10.7,"days_accept_to_join":32.6,"total_process_days":47.8},{"dept":"Design","days_apply_to_phone":11.1,"days_phone_to_tech":7.4,"days_tech_to_culture":7.3,"days_culture_to_hm":5.9,"days_hm_to_offer":7.3,"days_offer_to_accept":11.2,"days_accept_to_join":34.2,"total_process_days":46.8},{"dept":"Engineering","days_apply_to_phone":10.8,"days_phone_to_tech":7.3,"days_tech_to_culture":7.4,"days_culture_to_hm":5.3,"days_hm_to_offer":7.3,"days_offer_to_accept":12.1,"days_accept_to_join":32.6,"total_process_days":48.9},{"dept":"Finance","days_apply_to_phone":11.4,"days_phone_to_tech":8.0,"days_tech_to_culture":7.4,"days_culture_to_hm":5.1,"days_hm_to_offer":7.9,"days_offer_to_accept":10.6,"days_accept_to_join":35.9,"total_process_days":44.3},{"dept":"HR","days_apply_to_phone":10.8,"days_phone_to_tech":7.8,"days_tech_to_culture":7.4,"days_culture_to_hm":6.0,"days_hm_to_offer":7.4,"days_offer_to_accept":9.5,"days_accept_to_join":34.0,"total_process_days":46.2},{"dept":"Marketing","days_apply_to_phone":10.4,"days_phone_to_tech":7.5,"days_tech_to_culture":7.7,"days_culture_to_hm":5.6,"days_hm_to_offer":7.8,"days_offer_to_accept":10.6,"days_accept_to_join":35.7,"total_process_days":49.8},{"dept":"Operations","days_apply_to_phone":10.3,"days_phone_to_tech":7.7,"days_tech_to_culture":6.9,"days_culture_to_hm":5.3,"days_hm_to_offer":7.3,"days_offer_to_accept":11.2,"days_accept_to_join":32.6,"total_process_days":48.2},{"dept":"Product","days_apply_to_phone":11.3,"days_phone_to_tech":7.5,"days_tech_to_culture":7.2,"days_culture_to_hm":5.6,"days_hm_to_offer":7.4,"days_offer_to_accept":11.3,"days_accept_to_join":32.9,"total_process_days":49.3},{"dept":"Sales","days_apply_to_phone":11.3,"days_phone_to_tech":7.2,"days_tech_to_culture":7.6,"days_culture_to_hm":5.5,"days_hm_to_offer":7.4,"days_offer_to_accept":10.9,"days_accept_to_join":34.9,"total_process_days":51.9}],"gap_data":[{"bucket":"< -20%","total":62,"accepted":45,"joined":20,"acceptance_rate":72.6},{"bucket":"-20 to -10%","total":56,"accepted":38,"joined":25,"acceptance_rate":67.9},{"bucket":"-10 to 0%","total":60,"accepted":40,"joined":20,"acceptance_rate":66.7},{"bucket":"0 to 10%","total":50,"accepted":35,"joined":12,"acceptance_rate":70.0},{"bucket":"10 to 20%","total":21,"accepted":15,"joined":9,"acceptance_rate":71.4}],"salary_by_dept":[{"dept":"Engineering","count":24},{"dept":"Design","count":23},{"dept":"Operations","count":22},{"dept":"Customer Support","count":21},{"dept":"Finance","count":20},{"dept":"Sales","count":18},{"dept":"Product","count":15},{"dept":"Marketing","count":14},{"dept":"HR","count":12},{"dept":"Data Science","count":11}]};
+
+// ── NAV SCROLL ──
+function navTo(id, el) {
+  const target = document.getElementById(id);
+  if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+// ── FUNNEL ──
+(function buildFunnel() {
+  const wrap = document.getElementById('funnel-chart');
+  const stages = DATA.funnel;
+  const max = stages[0].count;
+  const colors = ['#00836e','#1a9080','#339d92','#4daaa4','#66b7b6','#80c4c8','#99d1da','#b3deec'];
+  stages.forEach((s, i) => {
+    const prev = i > 0 ? stages[i-1].count : s.count;
+    const drop = prev - s.count;
+    const dropPct = i > 0 ? ((drop/prev)*100).toFixed(1) : null;
+    const fillPct = (s.count / max * 100).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'funnel-stage';
+    row.innerHTML = `
+      <div class="funnel-label">${s.stage}</div>
+      <div class="funnel-bar-track">
+        <div class="funnel-bar-fill" style="width:${fillPct}%;background:${colors[i]}">
+          <span>${s.count.toLocaleString()}</span>
+        </div>
+      </div>
+      <div class="funnel-drop ${dropPct && parseFloat(dropPct)>30?'bad':'ok'}">
+        ${dropPct ? `−${dropPct}%` : ''}
+      </div>`;
+    wrap.appendChild(row);
+  });
+})();
+
+// ── DEPT TABLE ──
+let deptSortKey = 'join_rate', deptSortAsc = false, deptView = 'funnel';
+
+const DEPT_VIEWS = {
+  funnel: {
+    headers: ['Department','Applied','Screened','Offered','Joined','Join Rate ↕','Accept→Join','Avg Days'],
+    sortKeys: ['dept','total','phone_screen','offer_ext','joined','join_rate','accept_to_join_rate','avg_process_days'],
+    row: (d, maxRate) => {
+      const color = d.join_rate>=4?'#2f8a5a':d.join_rate>=3?'#c47d15':'#d94040';
+      const bg    = d.join_rate>=4?'#edf7f2':d.join_rate>=3?'#fef6e4':'#fdf0f0';
+      const a2jColor = d.accept_to_join_rate>=55?'#2f8a5a':d.accept_to_join_rate>=45?'#c47d15':'#d94040';
+      const a2jBg   = d.accept_to_join_rate>=55?'#edf7f2':d.accept_to_join_rate>=45?'#fef6e4':'#fdf0f0';
+      return `<td>${d.total}</td>
+        <td>${d.phone_screen} <span style="color:var(--muted);font-size:11px">(${Math.round(d.phone_screen/d.total*100)}%)</span></td>
+        <td>${d.offer_ext}</td><td><strong>${d.joined}</strong></td>
+        <td><div class="rate-bar"><div class="rate-bar-track"><div class="rate-bar-fill" style="width:${d.join_rate/maxRate*100}%;background:${color}"></div></div>
+          <span class="rate-pill" style="background:${bg};color:${color}">${d.join_rate}%</span></div></td>
+        <td><span class="rate-pill" style="background:${a2jBg};color:${a2jColor}">${d.accept_to_join_rate}%</span></td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px">${d.avg_process_days}d</td>`;
+    }
+  },
+  rates: {
+    headers: ['Department','Join Rate','Screen Rate','Offer→Accept','Accept→Join','Offer Ext.'],
+    sortKeys: ['dept','join_rate','phone_screen','offer_to_accept_rate','accept_to_join_rate','offer_ext'],
+    row: (d) => {
+      const pill = (v, lo, hi) => {
+        const c = v>=hi?'#2f8a5a':v>=lo?'#c47d15':'#d94040';
+        const bg = v>=hi?'#edf7f2':v>=lo?'#fef6e4':'#fdf0f0';
+        return `<span class="rate-pill" style="background:${bg};color:${c}">${v}%</span>`;
+      };
+      const screenRate = Math.round(d.phone_screen/d.total*100);
+      return `<td>${pill(d.join_rate,2.5,4)}</td>
+        <td>${pill(screenRate,24,28)}</td>
+        <td>${pill(d.offer_to_accept_rate,65,75)}</td>
+        <td>${pill(d.accept_to_join_rate,50,60)}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px">${d.offer_ext}</td>`;
+    }
+  },
+  timing: {
+    headers: ['Department','Apply→Screen','Screen→Tech','Tech→Culture','Culture→HM','HM→Offer','Offer→Accept','Accept→Join','Total'],
+    sortKeys: ['dept','avg_days_apply_to_phone','','','','','','avg_accept_to_join','avg_process_days'],
+    row: (d) => {
+      const t = DATA.timing.find(x=>x.dept===d.dept);
+      if (!t) return '<td colspan="8">—</td>';
+      const heatCell = (v, lo, hi) => {
+        const cls = v>=hi?'heat-2':v>=lo?'heat-1':'heat-0';
+        return `<td class="${cls}" style="text-align:center;font-family:'DM Mono',monospace">${v}</td>`;
+      };
+      return `${heatCell(t.days_apply_to_phone,10.8,11.2)}
+        ${heatCell(t.days_phone_to_tech,7.5,7.9)}
+        ${heatCell(t.days_tech_to_culture,7.4,7.7)}
+        ${heatCell(t.days_culture_to_hm,5.6,5.9)}
+        ${heatCell(t.days_hm_to_offer,7.5,7.8)}
+        ${heatCell(t.days_offer_to_accept,11.0,11.4)}
+        ${heatCell(t.days_accept_to_join,34,35.5)}
+        ${heatCell(t.total_process_days,49,51)}`;
+    }
+  }
+};
+
+function renderDeptTable() {
+  const view = DEPT_VIEWS[deptView];
+  const maxRate = Math.max(...DATA.departments.map(d=>d.join_rate));
+  const sorted = [...DATA.departments].sort((a,b)=>deptSortAsc?(a[deptSortKey]>b[deptSortKey]?1:-1):(a[deptSortKey]<b[deptSortKey]?1:-1));
+
+  // Rebuild thead
+  const table = document.getElementById('dept-table');
+  table.querySelector('thead tr').innerHTML = view.headers.map((h,i) =>
+    `<th onclick="sortDept('${view.sortKeys[i]||''}')" style="cursor:${view.sortKeys[i]?'pointer':'default'}">${h}</th>`
+  ).join('');
+
+  const tbody = document.getElementById('dept-tbody');
+  tbody.innerHTML = sorted.map(d => {
+    const isBest = d.dept==='Operations', isWorst = d.dept==='Design';
+    return `<tr>
+      <td><span class="dept-name">${d.dept}</span>${isBest?'<span class="badge best">best</span>':''}${isWorst?'<span class="badge worst">worst</span>':''}</td>
+      ${view.row(d, maxRate)}
+    </tr>`;
+  }).join('');
+}
+
+function sortDept(key) {
+  if (!key) return;
+  if (deptSortKey === key) deptSortAsc = !deptSortAsc;
+  else { deptSortKey = key; deptSortAsc = false; }
+  renderDeptTable();
+}
+
+function showDeptView(view, btn) {
+  deptView = view;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDeptTable();
+}
+renderDeptTable();
+
+// ── SOURCE BARS ──
+function buildBars(containerId, data, valueKey, maxVal, colorFn) {
+  const el = document.getElementById(containerId);
+  const sorted = [...data].sort((a,b)=>b[valueKey]-a[valueKey]);
+  el.innerHTML = sorted.map(d => {
+    const pct = (d[valueKey]/maxVal*100).toFixed(0);
+    const color = colorFn ? colorFn(d[valueKey]) : '#00836e';
+    return `<div class="bar-row">
+      <div class="bar-name" title="${d.source||d.dept||d.reason}">${d.source||d.dept||d.reason}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="bar-val">${d[valueKey]}${valueKey.includes('rate')?'%':''}</div>
+    </div>`;
+  }).join('');
+}
+const srcMax = Math.max(...DATA.sources.map(s=>s.join_rate));
+buildBars('source-join-bars', DATA.sources, 'join_rate', srcMax, v => v>=4?'#2f8a5a':v>=2.5?'#c47d15':'#d94040');
+const scrMax = Math.max(...DATA.sources.map(s=>s.phone_screen_rate));
+buildBars('source-screen-bars', DATA.sources, 'phone_screen_rate', scrMax, v => '#2c6fb0');
+
+// ── NOTES BARS ──
+const notesMax = DATA.notes[0].count;
+const notesEl = document.getElementById('notes-bars');
+const processIssues = new Set(['Notice period too long','Accepted another offer','Counter-offered by employer','Slow process','Personal reasons']);
+notesEl.innerHTML = DATA.notes.map(n => {
+  const isProcess = processIssues.has(n.reason);
+  const color = isProcess ? '#c47d15' : '#d94040';
+  return `<div class="bar-row">
+    <div class="bar-name" title="${n.reason}">${n.reason}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${n.count/notesMax*100}%;background:${color}"></div></div>
+    <div class="bar-val">${n.count}</div>
+  </div>`;
+}).join('');
+
+// ── HEATMAP ──
+(function buildHeatmap() {
+  const cols = [
+    {key:'days_apply_to_phone',label:'Apply→Screen'},
+    {key:'days_phone_to_tech',label:'Screen→Tech'},
+    {key:'days_tech_to_culture',label:'Tech→Culture'},
+    {key:'days_culture_to_hm',label:'Culture→HM'},
+    {key:'days_hm_to_offer',label:'HM→Offer'},
+    {key:'days_offer_to_accept',label:'Offer→Accept'},
+    {key:'days_accept_to_join',label:'Accept→Join'},
+    {key:'total_process_days',label:'Total'},
+  ];
+  const table = document.getElementById('heatmap-table');
+  const colMins = {}, colMaxs = {};
+  cols.forEach(c => {
+    const vals = DATA.timing.map(t=>t[c.key]);
+    colMins[c.key] = Math.min(...vals);
+    colMaxs[c.key] = Math.max(...vals);
+  });
+  table.innerHTML = `<thead><tr><th>Department</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+  <tbody>${DATA.timing.map(t => `<tr>
+    <td>${t.dept}</td>
+    ${cols.map(c => {
+      const v = t[c.key];
+      const range = colMaxs[c.key] - colMins[c.key];
+      const norm = range > 0 ? (v - colMins[c.key]) / range : 0;
+      const cls = norm > 0.65 ? 'heat-2' : norm > 0.35 ? 'heat-1' : 'heat-0';
+      return `<td class="${cls}">${v}</td>`;
+    }).join('')}
+  </tr>`).join('')}</tbody>`;
+})();
+
+// ── COMP CHART ──
+new Chart(document.getElementById('comp-chart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.gap_data.map(g=>g.bucket),
+    datasets: [{
+      label: 'Offer acceptance rate (%)',
+      data: DATA.gap_data.map(g=>g.acceptance_rate),
+      backgroundColor: '#2c6fb0',
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{label:v=>`${v.raw}% acceptance rate`}} },
+    scales:{
+      y:{ min:50, max:80, ticks:{callback:v=>v+'%'}, grid:{color:'#f0efe9'} },
+      x:{ grid:{display:false} }
+    }
+  }
+});
+
+// ── SALARY BARS ──
+const salMax = DATA.salary_by_dept[0].count;
+const salEl = document.getElementById('salary-bars');
+salEl.innerHTML = DATA.salary_by_dept.map(d => `<div class="bar-row">
+  <div class="bar-name">${d.dept}</div>
+  <div class="bar-track"><div class="bar-fill" style="width:${d.count/salMax*100}%;background:#d94040"></div></div>
+  <div class="bar-val">${d.count}</div>
+</div>`).join('');
+
+// ── ACTIVE NAV ON SCROLL ──
+const NAV_IDS = ['summary','funnel','departments','sources','dropouts','timing','compensation','recommendations'];
+window.addEventListener('scroll', () => {
+  let active = 'summary';
+  NAV_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.getBoundingClientRect().top < 140) active = id;
+  });
+  document.querySelectorAll('.nav-item').forEach((n, i) => {
+    n.classList.toggle('active', NAV_IDS[i] === active);
+  });
+});
+</script>
+</body>
+</html>

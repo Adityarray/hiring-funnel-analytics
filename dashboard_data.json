@@ -1,0 +1,75 @@
+{
+    "kpis": {
+        "total_applicants": 3000,
+        "total_joined": 86,
+        "overall_conversion_rate": 2.87,
+        "total_rejected_offers": 1351
+    },
+    "funnel_stages": {
+        "Applied": 3000,
+        "Phone Screen": 2679,
+        "Technical": 2397,
+        "Culture Fit": 2118,
+        "Hiring Manager": 1817,
+        "Offer": 1524,
+        "Joined": 86
+    },
+    "department_velocity": {
+        "Customer Support": 50.8,
+        "Data Science": 47.8,
+        "Design": 46.8,
+        "Engineering": 48.9,
+        "Finance": 44.3,
+        "HR": 46.2,
+        "Marketing": 49.8,
+        "Operations": 48.2,
+        "Product": 49.3,
+        "Sales": 51.9
+    },
+    "source_roi": {
+        "AngelList": {
+            "total_applicants": 380,
+            "joined": 4,
+            "conversion_rate": 1.05
+        },
+        "Campus": {
+            "total_applicants": 379,
+            "joined": 12,
+            "conversion_rate": 3.17
+        },
+        "Consultant": {
+            "total_applicants": 362,
+            "joined": 13,
+            "conversion_rate": 3.59
+        },
+        "Direct Application": {
+            "total_applicants": 384,
+            "joined": 13,
+            "conversion_rate": 3.39
+        },
+        "Employee Referral": {
+            "total_applicants": 382,
+            "joined": 6,
+            "conversion_rate": 1.57
+        },
+        "Indeed": {
+            "total_applicants": 361,
+            "joined": 15,
+            "conversion_rate": 4.16
+        },
+        "LinkedIn": {
+            "total_applicants": 373,
+            "joined": 9,
+            "conversion_rate": 2.41
+        },
+        "Naukri": {
+            "total_applicants": 379,
+            "joined": 14,
+            "conversion_rate": 3.69
+        }
+    },
+    "compensation_analysis": {
+        "avg_gap_rejected_percent": 7.41,
+        "avg_gap_joined_percent": 8.51
+    }
+}
